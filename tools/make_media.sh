@@ -13,7 +13,6 @@ OUT="$SITE/media"
 RAW="$HOME/AmberLab/Project-Isaac-RL/summer_2026/videos/raw_videos"
 SIM="$HOME/AmberLab/Project-Isaac-RL/sprout/logs/video"
 ANIM="$HOME/AmberLab/Project-Isaac-RL/summer_2026/submission_code/generator_rl_video/out"
-FULL="$HOME/AmberLab/Project-Isaac-RL/summer_2026/videos/paper_video_v2/paper_video_v2.mp4"
 
 X264=(-c:v libx264 -preset slow -pix_fmt yuv420p -movflags +faststart -an)
 
@@ -91,12 +90,5 @@ clip sim-entrance   "$SIM/entry_stairs_down/entry_stairs_down.mp4"              
 echo "method animations"
 clip anim-finetune  "$ANIM/S4FineTuneLoopFast.mp4"   0 44.4 1280 22
 
-echo "stand-in full video (not committed; replaced by the YouTube embed)"
-o="$OUT/video/full-standin.mp4"; guard "$o" "$FULL"
-if ! skip "$o"; then
-  ffmpeg -loglevel error -y -i "$FULL" -vf "fps=30,scale=1280:-2:flags=lanczos" -c:v libx264 -preset medium \
-    -crf 27 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 128k "$o"
-fi
-poster full-standin 20
 
 du -sh "$OUT/video" "$OUT/poster"

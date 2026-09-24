@@ -23,7 +23,5 @@ Existing outputs are skipped; `FORCE=1` rebuilds them.
 
 ## Before publishing
 
-- `TODO(youtube)` — swap the stand-in `<video>` in `#video` for the YouTube embed
-  (`media/video/full-standin.mp4` is git-ignored).
-- `TODO(arxiv)`, `TODO(code)`, `TODO(venue)` in `index.html`.
+- `TODO(arxiv)` and `TODO(code)` in `index.html`.
 - Update the BibTeX once there is an arXiv ID or venue.
