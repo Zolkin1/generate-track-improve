@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generate, Track, Improve</title>
+<meta name="description" content="A perceptive flow matching motion generator and a CLF-RL tracking policy, with an off-policy RL fine-tuning loop for the generator. One policy pair lets a Unitree G1 walk, run, jump on and off boxes, and climb stairs outdoors from raw depth images.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Generate, Track, Improve: Perceptive Multi-Skill Humanoid Locomotion with RL-Fine-Tuned Motion Generators">
+<meta property="og:description" content="Perceptive multi-skill humanoid locomotion from raw depth, with an off-policy RL loop that fine-tunes the motion generator.">
+<meta property="og:image" content="media/poster/hw-red-stairs.webp">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="css/main.css">
+<link rel="icon" href="media/poster/hw-red-stairs.webp">
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+</button>
+
+<!-- ======================================================= masthead -->
+<header class="masthead wrap">
+  <h1>Generate, Track, Improve: Perceptive Multi&#8209;Skill Humanoid Locomotion with RL&#8209;Fine&#8209;Tuned Motion Generators</h1>
+
+  <p class="authors">
+    <a href="https://www.zacholkin.com">Zachary Olkin</a>,
+    <span>William D. Compton</span>,
+    <span>Aaron D. Ames</span>
+  </p>
+  <p class="affil">Department of Control and Dynamical Systems, California Institute of Technology</p>
+
+  <nav class="links" aria-label="Paper and media links">
+    <a class="btn" href="paper/generate-track-improve.pdf">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6z M14 2v6h6"/></svg>Paper</a>
+    <!-- TODO(arxiv): set href and drop aria-disabled when the ID exists. -->
+    <a class="btn" aria-disabled="true" title="Coming soon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z M8 9h8 M8 13h8 M8 17h5"/></svg>arXiv</a>
+    <a class="btn" href="#video">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z M10 9l5 3-5 3z"/></svg>Video</a>
+    <!-- TODO(code): add a Code button here when the code is released. -->
+  </nav>
+</header>
+
+<!-- TODO(youtube): replace this <video> with the YouTube embed once the final cut is uploaded. -->
+<figure class="hero wrap-wide" id="video">
+  <video src="media/video/full-standin.mp4" poster="media/poster/full-standin.webp"
+         autoplay muted controls playsinline preload="auto"></video>
+  <figcaption>Supplementary video (placeholder: a 720p copy of the current cut; the final 4K version will be embedded from YouTube).</figcaption>
+</figure>
+
+<nav class="toc wrap" aria-label="Sections">
+  <a href="#abstract">Abstract</a><a href="#method">Method</a><a href="#hardware">Hardware</a><a href="#skills">Skills in simulation</a><a href="#finetuning">RL fine-tuning</a><a href="#ablations">Ablations</a><a href="#citation">Citation</a>
+</nav>
+
+<!-- ======================================================= abstract -->
+<section id="abstract">
+  <div class="sec-head wrap"><span class="sec-num">01</span><h2>Abstract</h2></div>
+  <div class="prose wrap">
+    <p>General purpose humanoids require locomotion controllers that are multi-skill, perceptive, dynamic, and robust enough to go anywhere humans can. In this work, we present a two layer locomotion architecture: (1) a perceptive flow matching motion generator plans whole body trajectories from raw depth images while a (2) perceptive tracking policy trained with control-guided RL follows these motions. Both policies are trained on a library of terrain consistent motion clips created with dynamically optimized human data which yields both accurate velocity tracking and terrain consistent references.</p>
+    <p>Our central contribution is a simple yet effective off-policy RL fine tuning loop that improves the motion generator. A structured search method is used with the generator to gather data for advantage weighted regression. This off-policy loop is much more sample efficient than on-policy residual fine tuning and improves terrain consistency on unseen geometries and skill compositions. We find that successful terrain traversals increased by up to 25 percentage points and skill selection improved by up to 80 percentage points.</p>
+    <p>By using raw depth images to perceive the environment no odometry or height maps are needed, and outdoor deployment is easy. With two cameras, the policy can see terrain coming from further away and adjust its velocity regardless of the commanded speed so it can traverse the terrain. A single policy pair enables a Unitree G1 humanoid to walk, run, stand, jump on and off of boxes, and traverse stairs in outdoor environments.</p>
+  </div>
+</section>
+
+<!-- ======================================================= method -->
+<section id="method">
+  <div class="sec-head wrap"><span class="sec-num">02</span><h2>Method</h2></div>
+  <div class="prose wrap">
+    <p>The pipeline has four parts: a <b>data pipeline</b> that turns human motion capture into a library of terrain-consistent motion clips, a <b>tracker</b> trained with CLF-RL to follow those clips, a <b>generator</b> trained with flow matching to produce them from depth images, and an <b>RL fine-tuning</b> loop that improves the generator. On the robot, the tracker runs at 50&nbsp;Hz and the generator re-plans a 1.24&nbsp;s whole-body trajectory every 0.24&nbsp;s.</p>
+  </div>
+
+  <figure class="wrap-wide plain">
+    <img src="media/figures/fig2.webp" alt="Pipeline diagram: human data to optimization to motion clips and motion library; tracking training with CLF rewards and PPO; flow matching training on depth images; RL fine tuning of the generator with a critic in IsaacSim." loading="lazy">
+    <figcaption><b>Fig. 2.</b> Overview of the method. Human data is translated into motion clips through optimization and generative models. A perceptive tracking policy is trained with CLF-RL to track the motion library. The library and tracker are then used to collect the depth images the robot sees in each state, which, paired with the commanded velocity, train the flow matching generator. Finally, the generator is fine-tuned with off-policy RL.</figcaption>
+  </figure>
+
+
+</section>
+
+<!-- ======================================================= hardware -->
+<section id="hardware">
+  <div class="sec-head wrap"><span class="sec-num">03</span><h2>Hardware</h2></div>
+  <div class="prose wrap">
+    <p>Deployed on a Unitree G1 with a ZED X (upper, forward-facing) and a ZED X Mini (lower, looking at the legs and ground). The generator and tracker run on an onboard Jetson Thor, with depth processed on a Jetson Orin. Indoors and outdoors use the same policies with no changes.</p>
+  </div>
+
+  <div class="player wrap" data-player>
+    <div class="picker" role="tablist" aria-label="Skill">
+      <button role="tab" aria-selected="true"  data-group="hw-stairs">Stairs</button>
+      <button role="tab" aria-selected="false" data-group="hw-boxes">Boxes</button>
+      <button role="tab" aria-selected="false" data-group="hw-flat">Walking &amp; running</button>
+    </div>
+    <div class="chips" data-for="hw-stairs">
+      <button aria-pressed="true"  data-src="hw-red-stairs"      data-caption="15 consecutive outdoor steps, including the transitions into and out of the climb.">15-step staircase</button>
+      <button aria-pressed="false" data-src="hw-entrance"        data-caption="A building entrance: two flights with a landing between them.">Building entrance</button>
+      <button aria-pressed="false" data-src="hw-parking-stairs"  data-caption="Outdoor stairs in a parking structure.">Parking structure</button>
+      <button aria-pressed="false" data-src="hw-stairs-up-down"  data-caption="Up one flight and back down.">Up &amp; down</button>
+      <button aria-pressed="false" data-src="hw-interior-stairs" data-caption="An indoor staircase.">Interior stairs</button>
+    </div>
+    <div class="chips" data-for="hw-boxes" hidden>
+      <button aria-pressed="true"  data-src="hw-box-jump"     data-caption="Jumping onto a pallet box, walking across it, and jumping off.">Pallet box</button>
+      <button aria-pressed="false" data-src="hw-running-jump" data-caption="A jump onto a platform from a running start, outdoors.">Running jump</button>
+      <button aria-pressed="false" data-src="hw-walk-jump"    data-caption="Walking up to a platform outdoors and jumping onto it.">Walk-up jump</button>
+    </div>
+    <div class="chips" data-for="hw-flat" hidden>
+      <button aria-pressed="true"  data-src="hw-run-turn"     data-caption="Running at 2&nbsp;m/s while turning onto a path.">Running &amp; turning</button>
+      <button aria-pressed="false" data-src="hw-walk-outside" data-caption="Walking outdoors, among the walls, trees, and bushes the policy was never simulated with.">Outdoor walking</button>
+    </div>
+    <figure>
+      <video poster="media/poster/hw-red-stairs.webp" src="media/video/hw-red-stairs.mp4"
+             muted loop playsinline preload="none" data-autoplay></video>
+      <figcaption data-caption-slot></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================================================= skills in simulation -->
+<section id="skills">
+  <div class="sec-head wrap"><span class="sec-num">04</span><h2>Skills in Simulation</h2></div>
+
+  <div class="player wrap" data-player>
+    <div class="chips" data-for="all">
+      <button aria-pressed="true"  data-src="sim-four-box"    data-caption="Four boxes of increasing height (0.25&ndash;0.70&nbsp;m) under one held forward command. The robot slows for each jump and recovers between them.">Four boxes</button>
+      <button aria-pressed="false" data-src="sim-flat"        data-caption="Flat ground in one take: stand, side-step both ways, break into a 2.2&nbsp;m/s run while turning, settle to a 0.8&nbsp;m/s walk, then stop.">Flat, walk &amp; run</button>
+      <button aria-pressed="false" data-src="sim-tall-stairs" data-caption="A long staircase: 20 risers up to +2.79&nbsp;m under a single held 1.0&nbsp;m/s command.">Tall stairs</button>
+      <button aria-pressed="false" data-src="sim-entrance"    data-caption="Descending a model of a real building entrance: off the raised clearing, through the narrowing doorway, and down both flights.">Building entrance</button>
+    </div>
+    <figure>
+      <video poster="media/poster/sim-four-box.webp" src="media/video/sim-four-box.mp4"
+             muted loop playsinline preload="none" data-autoplay></video>
+      <figcaption data-caption-slot></figcaption>
+    </figure>
+  </div>
+
+</section>
+
+<!-- ======================================================= RL fine-tuning -->
+<section id="finetuning">
+  <div class="sec-head wrap"><span class="sec-num">05</span><h2>RL Fine-Tuning of the Generator</h2></div>
+  <figure class="wrap">
+    <video src="media/video/anim-finetune.mp4" poster="media/poster/anim-finetune.webp"
+           muted loop playsinline preload="none" data-autoplay controls></video>
+    <figcaption>Each iteration collects rollouts, trains a critic to label advantages, and updates the generator, shifting its output distribution toward the high-advantage modes.</figcaption>
+  </figure>
+  <div class="prose wrap">
+    <p>The generator outputs almost 3,000 numbers per plan, so Gaussian noise on its actions is a poor way to explore. Instead, rollouts are diversified by <b>perturbing the conditioning</b> (and storing the nominal conditioning as the label), resampling the flow matching <b>initial noise</b>, and spawning the robot in states the original policy might not reach.</p>
+    <p>A critic built on the generator's frozen prefix encoder is fit by fitted value iteration. Its advantages then weight the flow matching loss, in the style of <b>advantage weighted regression</b>:</p>
+    <p class="eq">\[\begin{gathered}\mathcal{L}=\frac{1}{B}\sum_{i=1}^{B}\frac{w_i}{H\ell}\,\big\lVert v_\theta(x^i_t,t_i,s_i)-v^*\big\rVert_F^2\\ w=\min\{\exp(\tilde A/\beta),\,L\}\end{gathered}\]</p>
+    <p>Rewards favor terrain consistency first (penetration and contact via signed distance fields). Velocity tracking and success only pay out when the plan is terrain consistent. Five iterations take about six hours on one H100.</p>
+  </div>
+
+  <div class="sub-head wrap"><h3>Pre-trained vs. fine-tuned</h3></div>
+  <div class="prose wrap">
+    <p>Each comparison uses the same terrain, the same random seed, and the same frozen tracker. Only the generator differs. When a run falls, its side freezes on the last frame.</p>
+  </div>
+
+  <div class="player wrap" data-player>
+    <div class="picker" role="tablist" aria-label="Terrain">
+      <button role="tab" aria-selected="true"  data-group="stairs">Walled stairs</button>
+      <button role="tab" aria-selected="false" data-group="boxes">Two boxes</button>
+    </div>
+    <div class="chips" data-for="stairs">
+      <button aria-pressed="true"  data-src="ft-stairs-9" >Seed 9</button>
+      <button aria-pressed="false" data-src="ft-stairs-28">Seed 28</button>
+      <button aria-pressed="false" data-src="ft-stairs-32">Seed 32</button>
+    </div>
+    <div class="chips" data-for="boxes" hidden>
+      <button aria-pressed="true"  data-src="ft-boxes-20">Seed 20</button>
+      <button aria-pressed="false" data-src="ft-boxes-7" >Seed 7</button>
+    </div>
+    <figure class="compare">
+      <div class="compare-labels" aria-hidden="true"><span>Pre-trained</span><span>Fine-tuned (AWR)</span></div>
+      <video poster="media/poster/ft-stairs-9.webp" src="media/video/ft-stairs-9.mp4"
+             muted loop playsinline preload="none" data-autoplay></video>
+    </figure>
+  </div>
+
+  <figure class="wrap-wide plain">
+    <img src="media/figures/fig4.webp" alt="Bar charts: success rate, mean contact penalty, and fraction of episodes with every mode correct, for pre-trained vs fine-tuned generators across terrains." loading="lazy">
+    <figcaption><b>Fig. 4.</b> Effects of the RL fine-tuning on out-of-distribution and in-distribution terrains. (a) Success rate. (b) Mean contact penalty (lower is more terrain consistent). (c) Fraction of sampled episodes that choose every skill correctly: on one stairs terrain, this goes from 0% to about 80%. Error bars are 95% confidence intervals.</figcaption>
+  </figure>
+
+  <div class="sub-head wrap-wide"><h3>Why off-policy AWR?</h3></div>
+  <div class="split wrap-wide">
+    <div class="prose">
+      <p>We compare AWR against filtered behavior cloning, arrival filtering (keep every rollout that reaches the goal), plain behavior cloning/self-distillation, and AWR without perturbed conditioning. AWR matches or beats every alternative in both success rate and terrain consistency. Plain BC fails badly, so some selection signal is essential. Removing the conditioning perturbations costs 4&ndash;6 points of success.</p>
+      <p>A residual policy trained with PPO on the full 2,728-dimensional output reached a success rate about 13 points lower than AWR, after using more than <b>160&times; the data</b> and <b>30&times; the wall-clock time</b>.</p>
+    </div>
+    <figure class="plain">
+      <img src="media/figures/fig5.webp" alt="Forest plot of success rate and contact penalty relative to AWR for AWR without perturbation, arrival filtering, filtered BC, and plain BC across three settings." loading="lazy">
+      <figcaption><b>Fig. 5.</b> Fine-tuning algorithms relative to AWR, with 95% confidence intervals.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ======================================================= velocity tracking & ablations -->
+<section id="ablations">
+  <div class="sec-head wrap"><span class="sec-num">06</span><h2>Velocity Tracking &amp; Ablations</h2></div>
+  <div class="prose wrap">
+    <p>The velocity command does not need to know about the terrain. The upper camera sees obstacles coming, and the generator slows the robot down for stairs or a box jump, then returns to the commanded speed.</p>
+  </div>
+  <div class="split wrap-wide">
+    <figure class="plain">
+      <img src="media/figures/fig6.webp" alt="Root height and forward velocity over time for flat, stairs up, box, and stairs down terrains at 0.8, 1.6, and 2.2 m/s commands." loading="lazy">
+      <figcaption><b>Fig. 6.</b> The robot slows down on its own when it approaches terrain, then tracks the command again. Percentages are successes over 150 trials per terrain.</figcaption>
+    </figure>
+    <div class="prose">
+      <h4>Both cameras matter</h4>
+      <p>A generator trained without the forward-facing upper camera often runs into the box, because it cannot see it in time to slow down.</p>
+      <table>
+        <caption><b>Table IV.</b> Success rate on in-distribution terrain, pre-trained generator.</caption>
+        <thead><tr><th>Terrain</th><th>Both cameras</th><th>Lower only</th></tr></thead>
+        <tbody>
+          <tr><td>Flat</td><td>100%</td><td>100%</td></tr>
+          <tr><td>Box</td><td><b>100%</b></td><td>57.3%</td></tr>
+          <tr><td>Stairs up</td><td><b>82.7%</b></td><td>71.3%</td></tr>
+          <tr><td>Stairs down</td><td><b>97.3%</b></td><td>88.0%</td></tr>
+        </tbody>
+      </table>
+      <h4>Optimized references track velocity better</h4>
+      <table>
+        <caption><b>Table III.</b> Flat-ground velocity RMSE (m/s) of the motion clips, with 95% CIs.</caption>
+        <thead><tr><th>Command v<sub>x</sub></th><th>Ours</th><th>Motion Bricks</th></tr></thead>
+        <tbody>
+          <tr><td>(&minus;1.0, &minus;0.2]</td><td>0.484 <small>[0.357, 0.598]</small></td><td>0.462 <small>[0.346, 0.562]</small></td></tr>
+          <tr><td>(&minus;0.2, +1.0]</td><td><b>0.230</b> <small>[0.191, 0.271]</small></td><td>0.368 <small>[0.308, 0.434]</small></td></tr>
+          <tr><td>(+1.0, +2.5]</td><td><b>0.442</b> <small>[0.312, 0.563]</small></td><td>0.896 <small>[0.813, 0.976]</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= citation -->
+<section id="citation">
+  <div class="sec-head wrap"><span class="sec-num">07</span><h2>Citation</h2></div>
+  <div class="bib wrap">
+    <button type="button" class="copy" id="copy-bib">Copy</button>
+<pre id="bibtex">@article{olkin2026generate,
+  title   = {Generate, Track, Improve: Perceptive Multi-Skill Humanoid
+             Locomotion with RL-Fine-Tuned Motion Generators},
+  author  = {Olkin, Zachary and Compton, William D. and Ames, Aaron D.},
+  year    = {2026}
+}</pre>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p>This research is supported by the Technology Innovation Institute (TII).</p>
+  <p><a href="http://www.bipedalrobotics.com">AMBER Lab</a> &middot; Caltech</p>
+</footer>
+
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\[',right:'\\]',display:true}]})"></script>
+<script src="js/site.js"></script>
+</body>
+</html>
